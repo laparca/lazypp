@@ -1,4 +1,4 @@
-CXXFLAGS=-Wall -I../include
+CXXFLAGS=-Wall -I../include -g3 -O0
 
 all: test_map
 

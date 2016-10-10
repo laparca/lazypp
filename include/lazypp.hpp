@@ -14,15 +14,15 @@ namespace lazypp {
 			public:
 			typedef T value_type;
 			typedef typename InternalIterator::difference_type  difference_type;
-			typedef typename T* pointer;
-			typedef typename T& reference;
+			typedef T* pointer;
+			typedef T& reference;
 			typedef typename InternalIterator::iterator_category iterator_category;
-			typedef InternalIterator iterator;
+			typedef map_iterator<InternalIterator, T, Func> iterator;
 
 			public:
 			map_iterator() : it_() {}
-			map_iterator(InternalIterator it) : it_(it) {}
-			map_iterator(const iterator& mi) : it_(mi.it_) {}
+			map_iterator(InternalIterator it, Func func) : it_(it), func_(func) {}
+			map_iterator(const iterator& mi) : it_(mi.it_), func_(mi.func_) {}
 
 			iterator operator=(iterator it) {
 				it_ = it.it_;
@@ -42,7 +42,7 @@ namespace lazypp {
 			}
 
 			value_type operator->() {
-				return func_(*it);
+				return func_(*it_);
 			}
 
 			iterator operator++() {
@@ -73,10 +73,13 @@ namespace lazypp {
 		class map_container {
 			public:
 			typedef typename InternalIterator::value_type internal_value_type;
-			typedef typename map_iterator<InternalIterator, std::result_of(F(internal_value_type))::type> iterator;
+			typedef typename std::result_of<F(internal_value_type)>::type calculated_type;
+			typedef typename lazypp::iterators::map_iterator<InternalIterator, calculated_type, F> iterator;
+			typedef const iterator const_iterator;
 
 			public:
-			map_container(InternalIterator b, InternalIterator e, F func) : begin_(b), end_(e), func_(func) {}
+			map_container(const map_container<InternalIterator, F>& mc) : begin_(mc.begin_), end_(mc.end_), func_(mc.func_) {}
+			map_container(InternalIterator begin, InternalIterator end, F func) : begin_(begin), end_(end), func_(func) {}
 			iterator begin() { return iterator(begin_, func_); }
 			iterator end() { return iterator(end_, func_); }
 
@@ -91,13 +94,13 @@ namespace lazypp {
 		/**
 		 * Maps the container with a function.
 		 */
-		template<typename Iter, typename Fuc>
-		auto map(Iter begin, Iter end, Func f) -> decltype(make_map_container(begin, end, f)) {
-			return make_map_container(begin, end, f);
+		template<typename Iter, typename Func>
+		auto map(Iter begin, Iter end, Func f) /*-> decltype(make_map_container(begin, end, f))*/ {
+			return containers::map_container<Iter, Func>(begin, end, f);
 		}
 
 		template<typename Container, typename Func>
-		auto map(Container c, Func f) -> decltype(map(std::begin(c), std::end(c), f)) {
+		auto map(Container c, Func f) /*-> decltype(map(std::begin(c), std::end(c), f))*/ {
 			return map(std::begin(c), std::end(c), f);
 		}
 /*
@@ -111,17 +114,17 @@ namespace lazypp {
 		template<typename Container>
 		class lazy_container {
 			public:
-			typename lazy_container<Container> container;
+			typedef lazy_container<Container> container;
 
 			lazy_container(Container c) : container_(c) {}
 
 			template<typename F>
-			auto map(F func) -> decltype(make_lazy_container(map(container_, func))) {
+			auto map(F func) /*-> decltype(make_lazy_container(map(container_, func)))*/ {
 				return make_lazy_container(map(container_, func));
 			}
 
-			auto begin() -> decltype(std::begin(container_)) { return std::begin(container_); }
-			auto end() -> decltype(std::end(container_)) { return std::end(container_); }
+			auto begin() /*-> decltype(std::begin(container_))*/ { return std::begin(container_); }
+			auto end() /*-> decltype(std::end(container_))*/ { return std::end(container_); }
 
 			private:
 			container container_;
