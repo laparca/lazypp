@@ -9,14 +9,14 @@ namespace lazypp {
 
 		/**
 		 */
-		template<typename InternalIterator, typename T>
-		class map_iterator: public std::iterator<forward_iterator_tag, T> {
+		template<typename InternalIterator, typename T, typename Func>
+		class map_iterator: public std::iterator<std::forward_iterator_tag, T> {
 			public:
 			typedef T value_type;
 			typedef typename InternalIterator::difference_type  difference_type;
-			typedef typename InternalIterator::pointer   pointer;
-			typedef Reference reference;
-			typedef Category  iterator_category;
+			typedef typename T* pointer;
+			typedef typename T& reference;
+			typedef typename InternalIterator::iterator_category iterator_category;
 			typedef InternalIterator iterator;
 
 			public:
