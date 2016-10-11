@@ -3,6 +3,47 @@
 #define LAZYPP_HPP
 
 #include <iterator>
+#include <cxxabi.h>
+#include <iostream>
+#if 0
+template<typename T>
+std::string demangle(T& v) {
+	int status;
+	char* demangled = abi::__cxa_demangle(typeid(v).name(), 0, 0, &status);
+	std::string result(demangled);
+	free(demangled);
+	return result;
+}
+
+class __log_func {
+	public:
+		__log_func(std::string cl, std::string str) : class_(cl), name_(str) {
+			level_++;
+			level();
+			std::cout << ">> " << class_ << "::" << name_ << std::endl;
+		}
+
+		~__log_func() {
+			level();
+			std::cout << "<< " << class_ << "::" << name_ << std::endl;
+			level_--;
+		}
+	private:
+		std::string class_;
+		std::string name_;
+
+		static int level_;
+		static void level() {
+			for (int i = 0; i < level_; i++) {
+				std::cout << "  ";
+			}
+		}
+};
+int __log_func::level_ = 0;
+#define logf() __log_func __method_logger(demangle(*this), __FUNCTION__)
+#else
+#define logf() do { } while(0) 
+#endif
 
 namespace lazypp {
 	namespace iterators {
