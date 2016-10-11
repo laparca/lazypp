@@ -61,40 +61,47 @@ namespace lazypp {
 			typedef map_iterator<InternalIterator, T, Func> iterator;
 
 			public:
-			map_iterator() : it_() {}
-			map_iterator(InternalIterator it, Func func) : it_(it), func_(func) {}
-			map_iterator(const iterator& mi) : it_(mi.it_), func_(mi.func_) {}
+			map_iterator() = delete;
+			map_iterator(InternalIterator it, Func func) : it_(it), func_(func) {logf();}
+			map_iterator(const iterator& mi) : it_(mi.it_), func_(mi.func_) {logf();}
 
 			iterator operator=(iterator it) {
+				logf();
 				it_ = it.it_;
 				return *this;
 			}
 
 			bool operator==(iterator it) {
+				logf();
 				return it_ == it.it_;
 			}
 
 			bool operator!=(iterator it) {
+				logf();
 				return it_ != it.it_;
 			}
 
 			value_type operator*() {
+				logf();
 				return func_(*it_);
 			}
 
 			value_type operator->() {
+				logf();
 				return func_(*it_);
 			}
 
-			iterator operator++() {
+			iterator& operator++() {
+				logf();
 				it_++;
 				return *this;
 			}
 
 			iterator operator++(int) {
-				iterator it(it_);
+				logf();
+				InternalIterator it(it_);
 				it_++;
-				return it;
+				return iterator(it, func_);
 			}
 
 			private:
@@ -119,10 +126,11 @@ namespace lazypp {
 			typedef const iterator const_iterator;
 
 			public:
-			map_container(const map_container<InternalIterator, F>& mc) : begin_(mc.begin_), end_(mc.end_), func_(mc.func_) {}
-			map_container(InternalIterator begin, InternalIterator end, F func) : begin_(begin), end_(end), func_(func) {}
-			iterator begin() { return iterator(begin_, func_); }
-			iterator end() { return iterator(end_, func_); }
+			map_container() = delete;
+			map_container(const map_container<InternalIterator, F>& mc) : begin_(mc.begin_), end_(mc.end_), func_(mc.func_) {logf(); }
+			map_container(InternalIterator begin, InternalIterator end, F func) : begin_(begin), end_(end), func_(func) { logf(); }
+			iterator begin() { logf(); return iterator(begin_, func_); }
+			iterator end() { logf(); return iterator(end_, func_); }
 
 			private:
 			InternalIterator begin_;
@@ -136,12 +144,12 @@ namespace lazypp {
 		 * Maps the container with a function.
 		 */
 		template<typename Iter, typename Func>
-		auto map(Iter begin, Iter end, Func f) /*-> decltype(make_map_container(begin, end, f))*/ {
+		auto map(Iter begin, Iter end, Func f) {
 			return containers::map_container<Iter, Func>(begin, end, f);
 		}
 
 		template<typename Container, typename Func>
-		auto map(Container c, Func f) /*-> decltype(map(std::begin(c), std::end(c), f))*/ {
+		auto map(Container& c, Func f) {
 			return map(std::begin(c), std::end(c), f);
 		}
 /*
