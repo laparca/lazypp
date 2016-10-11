@@ -1,3 +1,4 @@
+.PHONY:all clean tests
 all: tests
 
 clean:
@@ -5,3 +6,4 @@ clean:
 
 tests:
 	make -C tests
+
