@@ -108,6 +108,67 @@ namespace lazypp {
 			InternalIterator it_;
 			Func func_;
 		};
+		
+		/**
+		 */
+		template<typename InternalIterator, typename T, typename Func>
+		class filter_iterator: public std::iterator<std::forward_iterator_tag, T> {
+			public:
+			typedef T value_type;
+			typedef typename InternalIterator::difference_type  difference_type;
+			typedef T* pointer;
+			typedef T& reference;
+			typedef typename InternalIterator::iterator_category iterator_category;
+			typedef map_iterator<InternalIterator, T, Func> iterator;
+
+			public:
+			map_iterator() = delete;
+			map_iterator(InternalIterator it, Func func) : it_(it), func_(func) {logf();}
+			map_iterator(const iterator& mi) : it_(mi.it_), func_(mi.func_) {logf();}
+
+			iterator operator=(iterator it) {
+				logf();
+				it_ = it.it_;
+				return *this;
+			}
+
+			bool operator==(iterator it) {
+				logf();
+				return it_ == it.it_;
+			}
+
+			bool operator!=(iterator it) {
+				logf();
+				return it_ != it.it_;
+			}
+
+			value_type operator*() {
+				logf();
+				return func_(*it_);
+			}
+
+			value_type operator->() {
+				logf();
+				return func_(*it_);
+			}
+
+			iterator& operator++() {
+				logf();
+				it_++;
+				return *this;
+			}
+
+			iterator operator++(int) {
+				logf();
+				InternalIterator it(it_);
+				it_++;
+				return iterator(it, func_);
+			}
+
+			private:
+			InternalIterator it_;
+			Func func_;
+		};
 	}
 
 	namespace containers {
@@ -129,6 +190,30 @@ namespace lazypp {
 			map_container() = delete;
 			map_container(const map_container<InternalIterator, F>& mc) : begin_(mc.begin_), end_(mc.end_), func_(mc.func_) {logf(); }
 			map_container(InternalIterator begin, InternalIterator end, F func) : begin_(begin), end_(end), func_(func) { logf(); }
+			iterator begin() { logf(); return iterator(begin_, func_); }
+			iterator end() { logf(); return iterator(end_, func_); }
+
+			private:
+			InternalIterator begin_;
+			InternalIterator end_;
+			F func_;
+		};
+
+		/**
+		 * F -> bool(value_type);
+		 */
+		template<typename InternalIterator, typename F>
+		class filter_container {
+			public:
+			typedef typename InternalIterator::value_type internal_value_type;
+			typedef typename std::result_of<F(internal_value_type)>::type calculated_type;
+			typedef typename lazypp::iterators::filter_iterator<InternalIterator, calculated_type, F> iterator;
+			typedef const iterator const_iterator;
+
+			public:
+			filter_container() = delete;
+			filter_container(const map_container<InternalIterator, F>& mc) : begin_(mc.begin_), end_(mc.end_), func_(mc.func_) {logf(); }
+			filter_container(InternalIterator begin, InternalIterator end, F func) : begin_(begin), end_(end), func_(func) { logf(); }
 			iterator begin() { logf(); return iterator(begin_, func_); }
 			iterator end() { logf(); return iterator(end_, func_); }
 
