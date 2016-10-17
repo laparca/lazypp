@@ -1,274 +1,171 @@
-#ifndef LAZYPP_HPP
+#include <type_traits>
+#include <experimental/optional>
 
-#define LAZYPP_HPP
-
-#include <iterator>
-#include <cxxabi.h>
-#include <iostream>
-#if 0
-template<typename T>
-std::string demangle(T& v) {
-	int status;
-	char* demangled = abi::__cxa_demangle(typeid(v).name(), 0, 0, &status);
-	std::string result(demangled);
-	free(demangled);
-	return result;
+namespace std {
+    template<typename T>
+        using optional = std::experimental::optional<T>;
 }
+namespace lazycpp {
 
-class __log_func {
-	public:
-		__log_func(std::string cl, std::string str) : class_(cl), name_(str) {
-			level_++;
-			level();
-			std::cout << ">> " << class_ << "::" << name_ << std::endl;
-		}
+    namespace iterators {
+        /**
+         * each iterator should define:
+         *  value_type
+         */
+        template<typename BaseIterator, typename MapFunc>
+            class map_iterator {
+                public:
+                    typedef typename BaseIterator::value_type base_value_type;
+                    typedef typename std::result_of_t<MapFunc(base_value_type)> value_type;
+                    typedef map_iterator<BaseIterator, MapFunc> iterator;
 
-		~__log_func() {
-			level();
-			std::cout << "<< " << class_ << "::" << name_ << std::endl;
-			level_--;
-		}
-	private:
-		std::string class_;
-		std::string name_;
+                    map_iterator() = delete;
+                    map_iterator(MapFunc map_func, BaseIterator base) : map_func_(map_func), base_(base) {}
+                    map_iterator(const map_iterator<BaseIterator, MapFunc>& m) : map_func_(m.map_func_), base_(m.base_) {}
 
-		static int level_;
-		static void level() {
-			for (int i = 0; i < level_; i++) {
-				std::cout << "  ";
-			}
-		}
-};
-int __log_func::level_ = 0;
-#define logf() __log_func __method_logger(demangle(*this), __FUNCTION__)
-#else
-#define logf() do { } while(0) 
-#endif
+                    std::optional<value_type> next() {
+                        auto v = base_.next();
+                        if (v)
+                            return std::optional<value_type>(map_func_(*v));
+                        else
+                            return std::optional<value_type>();
+                    }
 
-namespace lazypp {
-	namespace iterators {
+                private:
+                    MapFunc map_func_;
+                    BaseIterator base_;
+            };
 
-		/**
-		 */
-		template<typename InternalIterator, typename T, typename Func>
-		class map_iterator: public std::iterator<std::forward_iterator_tag, T> {
-			public:
-			typedef T value_type;
-			typedef typename InternalIterator::difference_type  difference_type;
-			typedef T* pointer;
-			typedef T& reference;
-			typedef typename InternalIterator::iterator_category iterator_category;
-			typedef map_iterator<InternalIterator, T, Func> iterator;
+        template<typename BaseIterator, typename FilterFunc>
+            class filter_iterator {
+                public:
+                    typedef typename BaseIterator::value_type value_type;
 
-			public:
-			map_iterator() = delete;
-			map_iterator(InternalIterator it, Func func) : it_(it), func_(func) {logf();}
-			map_iterator(const iterator& mi) : it_(mi.it_), func_(mi.func_) {logf();}
+                    filter_iterator() = delete;
+                    filter_iterator(FilterFunc filter_func, BaseIterator base) : filter_func_(filter_func), base_(base) {}
+                    filter_iterator(const filter_iterator<BaseIterator, FilterFunc>& f) : filter_func_(f.filter_func_), base_(f.base_) {}
 
-			iterator operator=(iterator it) {
-				logf();
-				it_ = it.it_;
-				return *this;
-			}
+                    std::optional<value_type> next() {
+                        for (auto v = base_.next(); v; v = base_.next()) {
+                            if (filter_func_(*v))
+                                return v;
+                        }
+                        return std::optional<value_type>();
+                    }
 
-			bool operator==(iterator it) {
-				logf();
-				return it_ == it.it_;
-			}
+                private:
+                    FilterFunc filter_func_;
+                    BaseIterator base_;
+            };
 
-			bool operator!=(iterator it) {
-				logf();
-				return it_ != it.it_;
-			}
+        template<typename BaseIterator>
+            class take_iterator {
+                public:
+                    typedef typename BaseIterator::value_type value_type;
 
-			value_type operator*() {
-				logf();
-				return func_(*it_);
-			}
+                    take_iterator() = delete;
+                    take_iterator(size_t num, BaseIterator base) : num_(num), base_(base) {}
+                    take_iterator(const take_iterator<BaseIterator>& t) : num_(t.num_), base_(t.base_) {}
 
-			value_type operator->() {
-				logf();
-				return func_(*it_);
-			}
+                    std::optional<value_type> next() {
+                        if (num_) {
+                            num_--;
+                            return base_.next();
+                        }
+                        else
+                            return std::optional<value_type>();
 
-			iterator& operator++() {
-				logf();
-				it_++;
-				return *this;
-			}
+                    }
 
-			iterator operator++(int) {
-				logf();
-				InternalIterator it(it_);
-				it_++;
-				return iterator(it, func_);
-			}
+                private:
+                    size_t num_;
+                    BaseIterator base_;
+            };
 
-			private:
-			InternalIterator it_;
-			Func func_;
-		};
-		
-		/**
-		 */
-		template<typename InternalIterator, typename T, typename Func>
-		class filter_iterator: public std::iterator<std::forward_iterator_tag, T> {
-			public:
-			typedef T value_type;
-			typedef typename InternalIterator::difference_type  difference_type;
-			typedef T* pointer;
-			typedef T& reference;
-			typedef typename InternalIterator::iterator_category iterator_category;
-			typedef map_iterator<InternalIterator, T, Func> iterator;
+        template<typename GenFunc>
+            class generate_iterator {
+                public:
+                    typedef std::result_of_t<GenFunc()> value_type;
 
-			public:
-			map_iterator() = delete;
-			map_iterator(InternalIterator it, Func func) : it_(it), func_(func) {logf();}
-			map_iterator(const iterator& mi) : it_(mi.it_), func_(mi.func_) {logf();}
+                    generate_iterator() = delete;
+                    generate_iterator(const GenFunc gen_func) : gen_func_(gen_func) {}
+                    generate_iterator(const generate_iterator<GenFunc>& g) : gen_func_(g.gen_func_) {}
 
-			iterator operator=(iterator it) {
-				logf();
-				it_ = it.it_;
-				return *this;
-			}
+                    std::optional<value_type> next() {
+                        return std::optional<value_type>(gen_func_());
+                    }
 
-			bool operator==(iterator it) {
-				logf();
-				return it_ == it.it_;
-			}
+                private:
+                    GenFunc gen_func_;
+            };
 
-			bool operator!=(iterator it) {
-				logf();
-				return it_ != it.it_;
-			}
+        template<typename BaseIterator, typename TestFunc>
+            class take_while_iterator {
+                public:
+                    typedef typename BaseIterator::value_type value_type;
 
-			value_type operator*() {
-				logf();
-				return func_(*it_);
-			}
+                    take_while_iterator() = delete;
+                    take_while_iterator(TestFunc test_func, BaseIterator base) : test_func_(test_func), base_(base), ended_(false) {}
+                    take_while_iterator(const take_while_iterator<TestFunc, BaseIterator>& t) : test_func_(t.test_func_), base_(t.base_), ended_(t.ended_) {}
 
-			value_type operator->() {
-				logf();
-				return func_(*it_);
-			}
+                    std::optional<value_type> next() {
+                        if (ended_)
+                            return std::optional<value_type>();
 
-			iterator& operator++() {
-				logf();
-				it_++;
-				return *this;
-			}
+                        auto v = base_.next();
+                        if (v && test_func_(*v))
+                            return v;
 
-			iterator operator++(int) {
-				logf();
-				InternalIterator it(it_);
-				it_++;
-				return iterator(it, func_);
-			}
+                        ended_ = true;
+                        return std::optional<value_type>();
+                    }
 
-			private:
-			InternalIterator it_;
-			Func func_;
-		};
-	}
+                private:
+                    TestFunc test_func_;
+                    BaseIterator base_;
+                    bool ended_;
+            };
 
-	namespace containers {
-		/* Concept LazyIteratorContainer {
-		 *    iterator begin();
-		 *    iterator end();
-		 * }
-		 */
+        template<typename Iterator>
+            class iterator_wrapper {
+                public:
+                    iterator_wrapper() = delete;
+                    iterator_wrapper(const iterator_wrapper<Iterator>& iterator) : iterator_(iterator.iterator_) {}
+                    iterator_wrapper(Iterator iterator) : iterator_(iterator) {}
 
-		template<typename InternalIterator, typename F>
-		class map_container {
-			public:
-			typedef typename InternalIterator::value_type internal_value_type;
-			typedef typename std::result_of<F(internal_value_type)>::type calculated_type;
-			typedef typename lazypp::iterators::map_iterator<InternalIterator, calculated_type, F> iterator;
-			typedef const iterator const_iterator;
+                    template<typename Func>
+                        iterator_wrapper<map_iterator<Iterator, Func>> map(Func f) {
+                            return iterator_wrapper<map_iterator<Iterator, Func>>(map_iterator<Iterator, Func>(f, iterator_));
+                        }
 
-			public:
-			map_container() = delete;
-			map_container(const map_container<InternalIterator, F>& mc) : begin_(mc.begin_), end_(mc.end_), func_(mc.func_) {logf(); }
-			map_container(InternalIterator begin, InternalIterator end, F func) : begin_(begin), end_(end), func_(func) { logf(); }
-			iterator begin() { logf(); return iterator(begin_, func_); }
-			iterator end() { logf(); return iterator(end_, func_); }
+                    template<typename Func>
+                        iterator_wrapper<filter_iterator<Iterator, Func>> filter(Func f) {
+                            return iterator_wrapper<filter_iterator<Iterator, Func>>(filter_iterator<Iterator, Func>(f, iterator_));
+                        }
 
-			private:
-			InternalIterator begin_;
-			InternalIterator end_;
-			F func_;
-		};
+                    iterator_wrapper<take_iterator<Iterator>> take(size_t num_elems) {
+                        return iterator_wrapper<take_iterator<Iterator>>(take_iterator<Iterator>(num_elems, iterator_));
+                    }
 
-		/**
-		 * F -> bool(value_type);
-		 */
-		template<typename InternalIterator, typename F>
-		class filter_container {
-			public:
-			typedef typename InternalIterator::value_type internal_value_type;
-			typedef typename std::result_of<F(internal_value_type)>::type calculated_type;
-			typedef typename lazypp::iterators::filter_iterator<InternalIterator, calculated_type, F> iterator;
-			typedef const iterator const_iterator;
+                    template<typename Func>
+                        iterator_wrapper<take_while_iterator<Iterator, Func>> take_while(Func f) {
+                            return iterator_wrapper<take_while_iterator<Iterator, Func>>(take_while_iterator<Iterator, Func>(f, iterator_));
+                        }
 
-			public:
-			filter_container() = delete;
-			filter_container(const map_container<InternalIterator, F>& mc) : begin_(mc.begin_), end_(mc.end_), func_(mc.func_) {logf(); }
-			filter_container(InternalIterator begin, InternalIterator end, F func) : begin_(begin), end_(end), func_(func) { logf(); }
-			iterator begin() { logf(); return iterator(begin_, func_); }
-			iterator end() { logf(); return iterator(end_, func_); }
+                    template<typename Func>
+                        void each(Func f) {
+                            decltype(iterator_.next()) v;
+                            while((v = iterator_.next()))
+                                f(*v);
+                        }
 
-			private:
-			InternalIterator begin_;
-			InternalIterator end_;
-			F func_;
-		};
-	}
+                private:
+                    Iterator iterator_;
+            };
 
-	namespace algorithms {
-		/**
-		 * Maps the container with a function.
-		 */
-		template<typename Iter, typename Func>
-		auto map(Iter begin, Iter end, Func f) {
-			return containers::map_container<Iter, Func>(begin, end, f);
-		}
-
-		template<typename Container, typename Func>
-		auto map(Container& c, Func f) {
-			return map(std::begin(c), std::end(c), f);
-		}
-/*
-		void filter();
-		void fold();
-		void generator();
-*/
-	}
-
-	namespace utils {
-		template<typename Container>
-		class lazy_container {
-			public:
-			typedef lazy_container<Container> container;
-
-			lazy_container(Container c) : container_(c) {}
-
-			template<typename F>
-			auto map(F func) /*-> decltype(make_lazy_container(map(container_, func)))*/ {
-				return make_lazy_container(map(container_, func));
-			}
-
-			auto begin() /*-> decltype(std::begin(container_))*/ { return std::begin(container_); }
-			auto end() /*-> decltype(std::end(container_))*/ { return std::end(container_); }
-
-			private:
-			container container_;
-		};
-
-		template<typename Container>
-		lazy_container<Container> make_lazy_container(Container c) {
-			return lazy_container<Container>(c);
-		}
-	}
+        template<typename Func>
+            iterator_wrapper<generate_iterator<Func>> from_generator(Func f) {
+                return iterator_wrapper<generate_iterator<Func>>(generate_iterator<Func>(f));
+            }
+    }
 }
-
-#endif /* end of include guard: LAZYPP_HPP */

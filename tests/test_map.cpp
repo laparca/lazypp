@@ -8,11 +8,14 @@ T square(T v) {
 }
 
 int main() {
-	std::vector<int> values{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-	auto sq = lazypp::algorithms::map(values, square<int>);
-
-	for(auto value : sq)
-		std::cout << value << std::endl;
+    lazycpp::iterators::from_generator([]() {
+        static size_t v = 0;
+        return v++;
+    })
+    .filter([](size_t v) { return v % 2 == 0;})
+    .take(10)
+    .map([](size_t v) { return v*v;})
+    .each([](size_t v) { std::cout << v << std::endl; });
 
 	return 0;
 }
