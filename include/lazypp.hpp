@@ -173,30 +173,72 @@ namespace lazypp {
 					STLIterator last_;
 			};
 
+		template<typename It>
+			class iterator_wrapper {
+				public:
+					typedef typename It::value_type value_type;
+
+					iterator_wrapper() : is_last_(true) {}
+					iterator_wrapper(It base_iterator) : is_last_(false), base_iterator_(base_iterator) {
+						operator++();
+					}
+					iterator_wrapper(const iterator_wrapper<It>& i) : is_last_(i.is_last_) {}
+
+					value_type& operator*() {
+						return value_;
+					}
+
+					bool operator!=(const iterator_wrapper<It>& it) {
+						if (is_last() && it.is_last())
+							return true;
+
+						return value_ == *it;
+					}
+
+					iterator_wrapper& operator++() {
+						value_ = base_iterator_.next();
+
+						if (value_)
+							is_last_ = true;
+
+						return *this;
+					}
+
+					bool is_last() { return is_last_; }
+
+				private:
+					bool is_last_;
+					It base_iterator_;
+					std::optional<value_type> value_;
+			};
+
         template<typename Iterator>
-            class iterator_wrapper {
+            class wrapper {
                 public:
-                    iterator_wrapper() = delete;
-                    iterator_wrapper(const iterator_wrapper<Iterator>& iterator) : iterator_(iterator.iterator_) {}
-                    iterator_wrapper(Iterator iterator) : iterator_(iterator) {}
+					typedef iterator_wrapper<Iterator> iterator;
+					typedef typename Iterator::value_type value_type;
+
+                    wrapper() = delete;
+                    wrapper(const wrapper<Iterator>& iterator) : iterator_(iterator.iterator_) {}
+                    wrapper(Iterator iterator) : iterator_(iterator) {}
 
                     template<typename Func>
-                        iterator_wrapper<map_iterator<Iterator, Func>> map(Func f) {
-                            return iterator_wrapper<map_iterator<Iterator, Func>>(map_iterator<Iterator, Func>(f, iterator_));
+                        wrapper<map_iterator<Iterator, Func>> map(Func f) {
+                            return wrapper<map_iterator<Iterator, Func>>(map_iterator<Iterator, Func>(f, iterator_));
                         }
 
                     template<typename Func>
-                        iterator_wrapper<filter_iterator<Iterator, Func>> filter(Func f) {
-                            return iterator_wrapper<filter_iterator<Iterator, Func>>(filter_iterator<Iterator, Func>(f, iterator_));
+                        wrapper<filter_iterator<Iterator, Func>> filter(Func f) {
+                            return wrapper<filter_iterator<Iterator, Func>>(filter_iterator<Iterator, Func>(f, iterator_));
                         }
 
-                    iterator_wrapper<take_iterator<Iterator>> take(size_t num_elems) {
-                        return iterator_wrapper<take_iterator<Iterator>>(take_iterator<Iterator>(num_elems, iterator_));
+                    wrapper<take_iterator<Iterator>> take(size_t num_elems) {
+                        return wrapper<take_iterator<Iterator>>(take_iterator<Iterator>(num_elems, iterator_));
                     }
 
                     template<typename Func>
-                        iterator_wrapper<take_while_iterator<Iterator, Func>> take_while(Func f) {
-                            return iterator_wrapper<take_while_iterator<Iterator, Func>>(take_while_iterator<Iterator, Func>(f, iterator_));
+                        wrapper<take_while_iterator<Iterator, Func>> take_while(Func f) {
+                            return wrapper<take_while_iterator<Iterator, Func>>(take_while_iterator<Iterator, Func>(f, iterator_));
                         }
 
                     template<typename Func>
@@ -205,6 +247,14 @@ namespace lazypp {
                             while((v = iterator_.next()))
                                 f(*v);
                         }
+
+					template<typename To>
+						To to() {
+							return To(begin(), end());
+						}
+
+					iterator begin() { return iterator(iterator_); }
+					iterator end() { return iterator(); }
 
                 private:
                     Iterator iterator_;
@@ -216,13 +266,13 @@ namespace lazypp {
 		using namespace lazypp::iterators;
 
         template<typename Func>
-            iterator_wrapper<generate_iterator<Func>> generator(Func f) {
-                return iterator_wrapper<generate_iterator<Func>>(generate_iterator<Func>(f));
+            wrapper<generate_iterator<Func>> generator(Func f) {
+                return wrapper<generate_iterator<Func>>(generate_iterator<Func>(f));
             }
 
 		template<typename T, typename LastFunc, typename NextFunc>
-			iterator_wrapper<range_iterator<T, LastFunc, NextFunc>> range(T& begin, LastFunc last_func, NextFunc next_func) {
-				return iterator_wrapper<range_iterator<T, LastFunc, NextFunc>>(range_iterator<T, LastFunc, NextFunc>(begin, last_func, next_func));
+			wrapper<range_iterator<T, LastFunc, NextFunc>> range(T& begin, LastFunc last_func, NextFunc next_func) {
+				return wrapper<range_iterator<T, LastFunc, NextFunc>>(range_iterator<T, LastFunc, NextFunc>(begin, last_func, next_func));
 			}
 
 		template<typename T>
@@ -237,7 +287,7 @@ namespace lazypp {
 
 		template<typename T>
 			auto stl_iterators(T&& first, T&& last) {
-				return iterator_wrapper<stl_iterator<T>>(stl_iterator<T>(first, last));
+				return wrapper<stl_iterator<T>>(stl_iterator<T>(first, last));
 			}
 
 		template<typename T>

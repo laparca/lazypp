@@ -26,5 +26,8 @@ int main() {
 	lazypp::from::stl_container(values)
 		.each(show);
 
+	std::vector<int> v = lazypp::from::range(1, 10)
+		.map(square)
+		.to<std::vector<int>>();
 	return 0;
 }
