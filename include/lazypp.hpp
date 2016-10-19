@@ -152,6 +152,27 @@ namespace lazypp {
 				FuncNext func_next_;
 		};
 
+		template<typename STLIterator>
+			class stl_iterator {
+				public:
+					typedef typename STLIterator::value_type value_type;
+
+					stl_iterator() = delete;
+					stl_iterator(STLIterator first, STLIterator last) : actual_(first), last_(last) {}
+					stl_iterator(const stl_iterator<STLIterator>& s) : actual_(s.actual_), last_(s.last_) {}
+
+					std::optional<value_type> next() {
+						if (actual_ == last_)
+							return std::optional<value_type>();
+
+						return *actual_++;
+					}
+
+				private:
+					STLIterator actual_;
+					STLIterator last_;
+			};
+
         template<typename Iterator>
             class iterator_wrapper {
                 public:
@@ -213,5 +234,16 @@ namespace lazypp {
 			auto range(T begin, T end, NextFunc next_func) {
 				return range(begin, [end](const T& v){ return v == end; }, next_func);
 			}
+
+		template<typename T>
+			auto stl_iterators(T&& first, T&& last) {
+				return iterator_wrapper<stl_iterator<T>>(stl_iterator<T>(first, last));
+			}
+
+		template<typename T>
+			auto stl_container(T& container) {
+				return stl_iterators(begin(container), end(container));
+			}
+
 	}
 }
