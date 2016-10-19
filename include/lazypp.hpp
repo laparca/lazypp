@@ -5,7 +5,7 @@ namespace std {
     template<typename T>
         using optional = std::experimental::optional<T>;
 }
-namespace lazycpp {
+namespace lazypp {
 
     namespace iterators {
         /**
