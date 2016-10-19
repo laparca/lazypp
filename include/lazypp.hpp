@@ -173,49 +173,9 @@ namespace lazypp {
 					STLIterator last_;
 			};
 
-		template<typename It>
-			class iterator_wrapper {
-				public:
-					typedef typename It::value_type value_type;
-
-					iterator_wrapper() : is_last_(true) {}
-					iterator_wrapper(It base_iterator) : is_last_(false), base_iterator_(base_iterator) {
-						operator++();
-					}
-					iterator_wrapper(const iterator_wrapper<It>& i) : is_last_(i.is_last_) {}
-
-					value_type& operator*() {
-						return value_;
-					}
-
-					bool operator!=(const iterator_wrapper<It>& it) {
-						if (is_last() && it.is_last())
-							return true;
-
-						return value_ == *it;
-					}
-
-					iterator_wrapper& operator++() {
-						value_ = base_iterator_.next();
-
-						if (value_)
-							is_last_ = true;
-
-						return *this;
-					}
-
-					bool is_last() { return is_last_; }
-
-				private:
-					bool is_last_;
-					It base_iterator_;
-					std::optional<value_type> value_;
-			};
-
         template<typename Iterator>
             class wrapper {
                 public:
-					typedef iterator_wrapper<Iterator> iterator;
 					typedef typename Iterator::value_type value_type;
 
                     wrapper() = delete;
@@ -250,11 +210,15 @@ namespace lazypp {
 
 					template<typename To>
 						To to() {
-							return To(begin(), end());
+						    To new_container();
+						    each([&new_container](auto v) {
+						            new_container.push_back(v);
+						        });
+							return To(std::move(new_container));
 						}
 
-					iterator begin() { return iterator(iterator_); }
-					iterator end() { return iterator(); }
+					//iterator begin() { return iterator(iterator_); }
+					//iterator end() { return iterator(); }
 
                 private:
                     Iterator iterator_;
