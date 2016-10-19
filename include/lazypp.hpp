@@ -126,6 +126,32 @@ namespace lazypp {
                     bool ended_;
             };
 
+		/**
+		 * FuncNext is a function that returns actual value and increment to the
+		 * next value.
+		 */
+		template<typename T, typename FuncLast, typename FuncNext>
+		class range_iterator {
+			public:
+				typedef T value_type;
+
+				range_iterator() = delete;
+				range_iterator(T first, FuncLast is_last, FuncNext func_next) : actual_(first), is_last_(is_last), func_next_(func_next) {}
+				range_iterator(const range_iterator<T, FuncLast, FuncNext>& r): actual_(r.actual_), is_last_(r.is_last_), func_next_(r.func_next_) {}
+
+				std::optional<value_type> next() {
+					if (is_last_(actual_))
+						return std::optional<value_type>();
+
+					return std::optional<value_type>(func_next_(actual_));
+				}
+
+			private:
+				T actual_;
+				FuncLast is_last_;
+				FuncNext func_next_;
+		};
+
         template<typename Iterator>
             class iterator_wrapper {
                 public:
@@ -167,5 +193,20 @@ namespace lazypp {
             iterator_wrapper<generate_iterator<Func>> from_generator(Func f) {
                 return iterator_wrapper<generate_iterator<Func>>(generate_iterator<Func>(f));
             }
-    }
+
+		template<typename T, typename LastFunc, typename NextFunc>
+			iterator_wrapper<range_iterator<T, LastFunc, NextFunc>> range(T& begin, LastFunc last_func, NextFunc next_func) {
+				return iterator_wrapper<range_iterator<T, LastFunc, NextFunc>>(range_iterator<T, LastFunc, NextFunc>(begin, last_func, next_func));
+			}
+
+		template<typename T>
+			auto range(T begin, T end) {
+				return range(begin, [end](const T& v){ return v == end; }, [](T& v) { return v++; });
+			}
+		
+		template<typename T, typename NextFunc>
+			auto range(T begin, T end, NextFunc next_func) {
+				return range(begin, [end](const T& v){ return v == end; }, next_func);
+			}
+	}
 }
