@@ -188,9 +188,14 @@ namespace lazypp {
                 private:
                     Iterator iterator_;
             };
+	}
+
+	namespace from {
+		
+		using namespace lazypp::iterators;
 
         template<typename Func>
-            iterator_wrapper<generate_iterator<Func>> from_generator(Func f) {
+            iterator_wrapper<generate_iterator<Func>> generator(Func f) {
                 return iterator_wrapper<generate_iterator<Func>>(generate_iterator<Func>(f));
             }
 
