@@ -217,6 +217,14 @@ namespace lazypp {
 							return To(std::move(new_container));
 						}
 
+					template<typename To, typename Func>
+						To fold(To acum, Func f) {
+							each([&](auto v) {
+									acum = f(acum, v);
+								});
+							return acum;
+						}
+
 					//iterator begin() { return iterator(iterator_); }
 					//iterator end() { return iterator(); }
 

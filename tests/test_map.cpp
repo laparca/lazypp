@@ -38,5 +38,10 @@ int main() {
 	for(auto&& v : converted)
 		std::cout << v << std::endl;
 
+	std::cout << "Testing folding" << std::endl;
+	std::cout << "Is 55 == " << lazypp::from::range(1, 1000)
+		.take(10)
+		.fold(0, [](auto acum, auto value) { return acum + value;}) << "?" << std::endl;
+
 	return 0;
 }
