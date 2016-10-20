@@ -209,8 +209,8 @@ namespace lazypp {
                         }
 
 					template<typename To>
-						To to() {
-						    To new_container();
+						std::remove_reference_t<To> to() {
+							std::remove_reference_t<To> new_container;
 						    each([&new_container](auto v) {
 						            new_container.push_back(v);
 						        });
