@@ -5,14 +5,30 @@ namespace std {
     template<typename T>
         using optional = std::experimental::optional<T>;
 }
+
+#ifdef BOOST_HAS_CONCEPTS
+#define IF_HAS_CONCEPTS(x) x
+#else
+#define IF_HAS_CONCEPTS(x)
+#endif
+
 namespace lazypp {
 
     namespace iterators {
+        IF_HAS_CONCEPTS(
+        template<typename T>
+            concept bool LazyIterator = requires(T a) {
+                typename T::value_type;
+                T(a);
+                { a.next() } -> typename std::optional<typename T::value_type>;
+            };
+            )
+
         /**
          * each iterator should define:
          *  value_type
          */
-        template<typename BaseIterator, typename MapFunc>
+        template<typename BaseIterator, typename MapFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class map_iterator {
                 public:
                     typedef typename BaseIterator::value_type base_value_type;
@@ -36,7 +52,7 @@ namespace lazypp {
                     BaseIterator base_;
             };
 
-        template<typename BaseIterator, typename FilterFunc>
+        template<typename BaseIterator, typename FilterFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class filter_iterator {
                 public:
                     typedef typename BaseIterator::value_type value_type;
@@ -58,7 +74,7 @@ namespace lazypp {
                     BaseIterator base_;
             };
 
-        template<typename BaseIterator>
+        template<typename BaseIterator> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class take_iterator {
                 public:
                     typedef typename BaseIterator::value_type value_type;
@@ -74,7 +90,6 @@ namespace lazypp {
                         }
                         else
                             return std::optional<value_type>();
-
                     }
 
                 private:
@@ -99,14 +114,14 @@ namespace lazypp {
                     GenFunc gen_func_;
             };
 
-        template<typename BaseIterator, typename TestFunc>
+        template<typename BaseIterator, typename TestFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class take_while_iterator {
                 public:
                     typedef typename BaseIterator::value_type value_type;
 
                     take_while_iterator() = delete;
                     take_while_iterator(TestFunc test_func, BaseIterator base) : test_func_(test_func), base_(base), ended_(false) {}
-                    take_while_iterator(const take_while_iterator<TestFunc, BaseIterator>& t) : test_func_(t.test_func_), base_(t.base_), ended_(t.ended_) {}
+                    take_while_iterator(const take_while_iterator<BaseIterator, TestFunc>& t) : test_func_(t.test_func_), base_(t.base_), ended_(t.ended_) {}
 
                     std::optional<value_type> next() {
                         if (ended_)
@@ -158,7 +173,8 @@ namespace lazypp {
 					typedef typename STLIterator::value_type value_type;
 
 					stl_iterator() = delete;
-					stl_iterator(STLIterator first, STLIterator last) : actual_(first), last_(last) {}
+					stl_iterator(const STLIterator& first, const STLIterator& last) : actual_(first), last_(last) {}
+					stl_iterator(STLIterator&& first, STLIterator&& last) : actual_(std::move(first)), last_(std::move(last)) {}
 					stl_iterator(const stl_iterator<STLIterator>& s) : actual_(s.actual_), last_(s.last_) {}
 
 					std::optional<value_type> next() {
@@ -173,7 +189,21 @@ namespace lazypp {
 					STLIterator last_;
 			};
 
-        template<typename Iterator>
+        template<typename T>
+        using stl_iterator_t = stl_iterator<std::remove_reference_t<T>>;
+
+        template<typename Iterator> IF_HAS_CONCEPTS(requires LazyIterator<Iterator>)
+            class wrapper;
+
+        template<typename T>
+        using wrapper_t = wrapper<std::remove_reference_t<T>>;
+
+        template<typename T> IF_HAS_CONCEPTS(requires LazyIterator<T>)
+            constexpr wrapper_t<T> wrap(T&& t) {
+                return wrapper_t<T>(std::forward<T>(t));
+            }
+
+        template<typename Iterator> IF_HAS_CONCEPTS(requires LazyIterator<Iterator>)
             class wrapper {
                 public:
 					typedef typename Iterator::value_type value_type;
@@ -184,21 +214,21 @@ namespace lazypp {
 
                     template<typename Func>
                         wrapper<map_iterator<Iterator, Func>> map(Func f) {
-                            return wrapper<map_iterator<Iterator, Func>>(map_iterator<Iterator, Func>(f, iterator_));
+                            return wrap(map_iterator<Iterator, Func>(f, iterator_));
                         }
 
                     template<typename Func>
                         wrapper<filter_iterator<Iterator, Func>> filter(Func f) {
-                            return wrapper<filter_iterator<Iterator, Func>>(filter_iterator<Iterator, Func>(f, iterator_));
+                            return wrap(filter_iterator<Iterator, Func>(f, iterator_));
                         }
 
                     wrapper<take_iterator<Iterator>> take(size_t num_elems) {
-                        return wrapper<take_iterator<Iterator>>(take_iterator<Iterator>(num_elems, iterator_));
+                        return wrap(take_iterator<Iterator>(num_elems, iterator_));
                     }
 
                     template<typename Func>
                         wrapper<take_while_iterator<Iterator, Func>> take_while(Func f) {
-                            return wrapper<take_while_iterator<Iterator, Func>>(take_while_iterator<Iterator, Func>(f, iterator_));
+                            return wrap(take_while_iterator<Iterator, Func>(f, iterator_));
                         }
 
                     template<typename Func>
@@ -225,9 +255,6 @@ namespace lazypp {
 							return acum;
 						}
 
-					//iterator begin() { return iterator(iterator_); }
-					//iterator end() { return iterator(); }
-
                 private:
                     Iterator iterator_;
             };
@@ -238,13 +265,13 @@ namespace lazypp {
 		using namespace lazypp::iterators;
 
         template<typename Func>
-            wrapper<generate_iterator<Func>> generator(Func f) {
-                return wrapper<generate_iterator<Func>>(generate_iterator<Func>(f));
+            auto generator(Func f) {
+                return wrap(generate_iterator<Func>(f));
             }
 
 		template<typename T, typename LastFunc, typename NextFunc>
-			wrapper<range_iterator<T, LastFunc, NextFunc>> range(T& begin, LastFunc last_func, NextFunc next_func) {
-				return wrapper<range_iterator<T, LastFunc, NextFunc>>(range_iterator<T, LastFunc, NextFunc>(begin, last_func, next_func));
+			auto range(T& begin, LastFunc last_func, NextFunc next_func) {
+				return wrap(range_iterator<T, LastFunc, NextFunc>(begin, last_func, next_func));
 			}
 
 		template<typename T>
@@ -258,13 +285,13 @@ namespace lazypp {
 			}
 
 		template<typename T>
-			auto stl_iterators(T&& first, T&& last) {
-				return wrapper<stl_iterator<T>>(stl_iterator<T>(first, last));
+			wrapper_t<stl_iterator_t<T>> stl_iterator(T&& first, T&& last) {
+				return wrap(stl_iterator_t<T>(std::forward<T>(first), std::forward<T>(last)));
 			}
 
 		template<typename T>
 			auto stl_container(T& container) {
-				return stl_iterators(begin(container), end(container));
+				return stl_iterator(begin(container), end(container));
 			}
 
 	}

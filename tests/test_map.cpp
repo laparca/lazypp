@@ -5,13 +5,14 @@
 int main() {
 	auto show = [](auto&& v) { std::cout << v << std::endl; };
 	auto square = [](auto&& v) { return v * v; };
+	auto infinite = []() {
+	    static size_t v = 0;
+	    return v++;
+	};
 	std::vector<int> values {1, 2, 3, 4, 5, 6, 7, 8};
 
 	std::cout << "Testing from generator" << std::endl;
-    lazypp::from::generator([]() {
-			static size_t v = 0;
-			return v++;
-		})
+    lazypp::from::generator(infinite)
 		.filter([](size_t v) { return v % 2 == 0;})
 		.take(10)
 		.map(square)
@@ -22,8 +23,13 @@ int main() {
 		.map(square)
 		.each(show);
 
+    std::cout << "Testing takewhile" << std::endl;
+    lazypp::from::generator(infinite)
+        .take_while([](auto&& v) { return v < 10; })
+        .each(show);
+
 	std::cout << "Testing from iterator" << std::endl;
-	lazypp::from::stl_iterators(std::begin(values), std::end(values))
+	lazypp::from::stl_iterator(std::begin(values), std::end(values))
 		.each(show);
 
 	std::cout << "Testing from stl container" << std::endl;
