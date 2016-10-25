@@ -46,10 +46,11 @@ namespace lazypp {
 			 * A lazy aplication its a function that gets a LazyIterator and
 			 * creates a new lazy iterator surround it.
 			 */
-            template<typename FuncApply>
-            concept bool LazyAplication() {
-				return std::is_same<std::result_of_t<FuncApply(LazyIterator)>, LazyIterator>::value;
-			}
+            template<typename FuncApply, typename Iterator>
+            concept bool LazyAplication = requires(FuncApply f, Iterator i) {
+                { f(i) } -> LazyIterator;
+                requires LazyIterator<Iterator>;
+			};
         //)
 
         /**
@@ -282,7 +283,7 @@ namespace lazypp {
 					 *          generates a new lazy iterator arround it.
 					 * @return New wrapper arround a new lazy iterator.
 					 */
-					template<typename Func> IF_HAS_CONCEPTS(requires LazyAplication<Func>)
+					template<typename Func> IF_HAS_CONCEPTS(requires LazyAplication<Func, Iterator>)
 						wrapper<std::result_of_t<Func(Iterator)>> operator>>(Func f) {
 							return wrap(f(iterator_));
 						}
