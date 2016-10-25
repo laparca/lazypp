@@ -1,3 +1,20 @@
+/******************************************************************************
+ * <one line to give the program's name and a brief idea of what it does.>
+ * Copyright (C) 2016 Samuel R. Sevilla <samrs65@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *****************************************************************************/
 #include <type_traits>
 #include <experimental/optional>
 
@@ -6,23 +23,34 @@ namespace std {
         using optional = std::experimental::optional<T>;
 }
 
+#define BOOST_HAS_CONCEPTS
+
 #ifdef BOOST_HAS_CONCEPTS
-#define IF_HAS_CONCEPTS(x) x
+#define IF_HAS_CONCEPTS(...) __VA_ARGS__
 #else
-#define IF_HAS_CONCEPTS(x)
+#define IF_HAS_CONCEPTS(...)
 #endif
 
 namespace lazypp {
 
     namespace iterators {
-        IF_HAS_CONCEPTS(
-        template<typename T>
+        //IF_HAS_CONCEPTS(
+            template<typename T>
             concept bool LazyIterator = requires(T a) {
                 typename T::value_type;
                 T(a);
                 { a.next() } -> typename std::optional<typename T::value_type>;
             };
-            )
+
+			/**
+			 * A lazy aplication its a function that gets a LazyIterator and
+			 * creates a new lazy iterator surround it.
+			 */
+            template<typename FuncApply>
+            concept bool LazyAplication() {
+				return std::is_same<std::result_of_t<FuncApply(LazyIterator)>, LazyIterator>::value;
+			}
+        //)
 
         /**
          * each iterator should define:
@@ -52,6 +80,11 @@ namespace lazypp {
                     BaseIterator base_;
             };
 
+        template<typename BaseIterator, typename MapFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
+			map_iterator<BaseIterator, MapFunc> make_map_iterator(MapFunc&& f, BaseIterator&& base) {
+				return map_iterator<BaseIterator, MapFunc>(std::forward<MapFunc>(f), std::forward<BaseIterator>(base));
+			}
+
         template<typename BaseIterator, typename FilterFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class filter_iterator {
                 public:
@@ -73,6 +106,11 @@ namespace lazypp {
                     FilterFunc filter_func_;
                     BaseIterator base_;
             };
+
+        template<typename BaseIterator, typename FilterFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
+			filter_iterator<BaseIterator, FilterFunc> make_filter_iterator(FilterFunc&& f, BaseIterator&& base) {
+				return filter_iterator<BaseIterator, FilterFunc>(std::forward<FilterFunc>(f), std::forward<BaseIterator>&& base);
+			}
 
         template<typename BaseIterator> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class take_iterator {
@@ -97,6 +135,11 @@ namespace lazypp {
                     BaseIterator base_;
             };
 
+        template<typename BaseIterator> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
+			take_iterator<BaseIterator> make_take_iterator(size_t num, BaseIterator&& base) {
+				return take_iterator<BaseIterator>(num, std::forward<BaseIterator>(base));
+			}
+
         template<typename GenFunc>
             class generate_iterator {
                 public:
@@ -113,6 +156,11 @@ namespace lazypp {
                 private:
                     GenFunc gen_func_;
             };
+
+		template<typename GenFunc>
+			generate_iterator<GenFunc> make_generate_iterator(GenFunc&& gen_func) {
+				return generate_iterator<GenFunc>(std::forward<GenFunc>(gen_func));
+			}
 
         template<typename BaseIterator, typename TestFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class take_while_iterator {
@@ -141,6 +189,11 @@ namespace lazypp {
                     bool ended_;
             };
 
+        template<typename BaseIterator, typename TestFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
+			take_while_iterator<BaseIterator, TestFunc> make_take_while_iterator(TestFunc&& test_func, BaseIterator&& base) {
+				return take_while_iterator<BaseIterator, TestFunc>(std::forward<TestFunc>(test_func), std::forward<BaseIterator>(base));
+			}
+
 		/**
 		 * FuncNext is a function that returns actual value and increment to the
 		 * next value.
@@ -166,6 +219,10 @@ namespace lazypp {
 				FuncLast is_last_;
 				FuncNext func_next_;
 		};
+		template<typename T, typename FuncLast, typename FuncNext>
+			range_iterator<T, FuncLast, FuncNext> make_range_iterator(T&& first, FuncLast&& is_last, FuncNext&& func_next) {
+				return range_iterator<T, FuncLast, FuncNext>(std::forward<T>(first), std::forward<FuncLast>(is_last), std::forward<FuncNext>(func_next));
+			}
 
 		template<typename STLIterator>
 			class stl_iterator {
@@ -188,6 +245,11 @@ namespace lazypp {
 					STLIterator actual_;
 					STLIterator last_;
 			};
+		
+		template<typename STLIterator>
+			stl_iterator<STLIterator> make_stl_iterator(STLIterator&& first, STLIterator&& last) {
+				return stl_iterator<STLIterator>(std::forward<STLIterator>(first), std::forward<STLIterator>(last));
+			}
 
         template<typename T>
         using stl_iterator_t = stl_iterator<std::remove_reference_t<T>>;
@@ -210,7 +272,20 @@ namespace lazypp {
 
                     wrapper() = delete;
                     wrapper(const wrapper<Iterator>& iterator) : iterator_(iterator.iterator_) {}
-                    wrapper(Iterator iterator) : iterator_(iterator) {}
+                    wrapper(wrapper<Iterator>&& iterator) : iterator_(std::move(iterator.iterator_)) {}
+                    wrapper(Iterator&& iterator) : iterator_(std::forward<Iterator>(iterator)) {}
+
+					/**
+					 * Grant the hability of use stream sintax for concatenate
+					 * lazyness operations.
+					 * @param f function that acepts a lazy interator and
+					 *          generates a new lazy iterator arround it.
+					 * @return New wrapper arround a new lazy iterator.
+					 */
+					template<typename Func> IF_HAS_CONCEPTS(requires LazyAplication<Func>)
+						wrapper<std::result_of_t<Func(Iterator)>> operator>>(Func f) {
+							return wrap(f(iterator_));
+						}
 
                     template<typename Func>
                         wrapper<map_iterator<Iterator, Func>> map(Func f) {
@@ -258,6 +333,52 @@ namespace lazypp {
                 private:
                     Iterator iterator_;
             };
+	}
+
+	namespace applications {
+		using namespace lazypp::iterators;
+
+		template<typename Func>
+		class map_ {
+			public:
+				map_(Func&& f) : f_(std::forward<Func>(f)) {}
+
+				template<typename Iterator> IF_HAS_CONCEPTS(requires LazyIterator<Iterator>)
+				auto operator()(Iterator&& it) {
+					return make_map_iterator(f_, std::forward<Iterator>(it));
+				}
+
+			private:
+				Func f_;
+		};
+
+		template<typename Func>
+		auto map(Func&& f) {
+//			return [f](auto base_iterator) {
+//				return make_map_iterator(f, base_iterator);
+//			};
+			return map_<Func>(std::forward<Func>(f));
+		}
+
+		template<typename Func>
+		auto filter(Func f) {
+			return [f](auto base_iterator) {
+				return make_filter_iterator(f, base_iterator);
+			};
+		}
+
+		template<typename Func>
+		auto take_while(Func f) {
+			return [f](auto base_iterator) {
+				return make_take_while_iterator(f, base_iterator);
+			};
+		}
+
+		auto take(size_t num_elems) {
+			return [num_elems](auto base_iterator) {
+				return make_take_iterator(num_elems, base_iterator);
+			};
+		}
 	}
 
 	namespace from {

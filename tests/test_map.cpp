@@ -49,5 +49,9 @@ int main() {
 		.take(10)
 		.fold(0, [](auto acum, auto value) { return acum + value;}) << "?" << std::endl;
 
+	using namespace lazypp::applications;
+
+	(lazypp::from::generator(infinite) >> map(square) >> take(10) >> filter([](size_t v) { return v % 2 == 0;})).each(show);
+
 	return 0;
 }
