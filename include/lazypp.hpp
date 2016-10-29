@@ -34,12 +34,18 @@ namespace std {
 namespace lazypp {
 
     namespace iterators {
+		template<typename T>
+		using remove_reference_t = typename std::remove_reference<T>::type;
+
+		template<typename T>
+		using value_type_t = typename remove_reference_t<T>::value_type;
+
         //IF_HAS_CONCEPTS(
             template<typename T>
             concept bool LazyIterator = requires(T a) {
-                typename T::value_type;
+                typename value_type_t<T>;
                 T(a);
-                { a.next() } -> typename std::optional<typename T::value_type>;
+                { a.next() } -> typename std::optional<value_type_t<T>>;
             };
 
 			/**
@@ -47,8 +53,8 @@ namespace lazypp {
 			 * creates a new lazy iterator surround it.
 			 */
             template<typename FuncApply, typename Iterator>
-            concept bool LazyAplication = requires(FuncApply f, Iterator i) {
-                { f(i) } -> LazyIterator;
+            concept bool LazyAplication = requires() {
+				requires LazyIterator<std::result_of_t<FuncApply(Iterator)>>;
                 requires LazyIterator<Iterator>;
 			};
         //)
@@ -60,7 +66,7 @@ namespace lazypp {
         template<typename BaseIterator, typename MapFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class map_iterator {
                 public:
-                    typedef typename BaseIterator::value_type base_value_type;
+                    typedef value_type_t<BaseIterator> base_value_type;
                     typedef typename std::result_of_t<MapFunc(base_value_type)> value_type;
                     typedef map_iterator<BaseIterator, MapFunc> iterator;
 
@@ -89,7 +95,7 @@ namespace lazypp {
         template<typename BaseIterator, typename FilterFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class filter_iterator {
                 public:
-                    typedef typename BaseIterator::value_type value_type;
+                    typedef value_type_t<BaseIterator> value_type;
 
                     filter_iterator() = delete;
                     filter_iterator(FilterFunc filter_func, BaseIterator base) : filter_func_(filter_func), base_(base) {}
@@ -116,7 +122,7 @@ namespace lazypp {
         template<typename BaseIterator> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class take_iterator {
                 public:
-                    typedef typename BaseIterator::value_type value_type;
+                    typedef value_type_t<BaseIterator> value_type;
 
                     take_iterator() = delete;
                     take_iterator(size_t num, BaseIterator base) : num_(num), base_(base) {}
@@ -166,7 +172,7 @@ namespace lazypp {
         template<typename BaseIterator, typename TestFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
             class take_while_iterator {
                 public:
-                    typedef typename BaseIterator::value_type value_type;
+                    typedef value_type_t<BaseIterator> value_type;
 
                     take_while_iterator() = delete;
                     take_while_iterator(TestFunc test_func, BaseIterator base) : test_func_(test_func), base_(base), ended_(false) {}
@@ -228,7 +234,7 @@ namespace lazypp {
 		template<typename STLIterator>
 			class stl_iterator {
 				public:
-					typedef typename STLIterator::value_type value_type;
+					typedef value_type_t<STLIterator> value_type;
 
 					stl_iterator() = delete;
 					stl_iterator(const STLIterator& first, const STLIterator& last) : actual_(first), last_(last) {}
@@ -262,14 +268,14 @@ namespace lazypp {
         using wrapper_t = wrapper<std::remove_reference_t<T>>;
 
         template<typename T> IF_HAS_CONCEPTS(requires LazyIterator<T>)
-            constexpr wrapper_t<T> wrap(T&& t) {
-                return wrapper_t<T>(std::forward<T>(t));
+            constexpr wrapper<T> wrap(T&& t) {
+                return wrapper<T>(std::forward<T>(t));
             }
 
         template<typename Iterator> IF_HAS_CONCEPTS(requires LazyIterator<Iterator>)
             class wrapper {
                 public:
-					typedef typename Iterator::value_type value_type;
+//					typedef typename Iterator::value_type value_type;
 
                     wrapper() = delete;
                     wrapper(const wrapper<Iterator>& iterator) : iterator_(iterator.iterator_) {}
@@ -284,7 +290,7 @@ namespace lazypp {
 					 * @return New wrapper arround a new lazy iterator.
 					 */
 					template<typename Func> IF_HAS_CONCEPTS(requires LazyAplication<Func, Iterator>)
-						wrapper<std::result_of_t<Func(Iterator)>> operator>>(Func f) {
+						wrapper<std::result_of_t<Func(Iterator)>> operator>>(Func&& f) {
 							return wrap(f(iterator_));
 						}
 
@@ -355,30 +361,61 @@ namespace lazypp {
 
 		template<typename Func>
 		auto map(Func&& f) {
-//			return [f](auto base_iterator) {
-//				return make_map_iterator(f, base_iterator);
-//			};
 			return map_<Func>(std::forward<Func>(f));
 		}
 
 		template<typename Func>
+		class filter_ {
+			public:
+				filter_(Func&& f) : f_(std::forward<Func>(f)) {}
+
+				template<typename Iterator> IF_HAS_CONCEPTS(requires LazyIterator<Iterator>)
+				auto operator()(Iterator&& it) {
+					return make_filter_iterator(f_, std::forward<Iterator>(it));
+				}
+
+			private:
+				Func f_;
+		};
+
+		template<typename Func>
 		auto filter(Func f) {
-			return [f](auto base_iterator) {
-				return make_filter_iterator(f, base_iterator);
-			};
+			return filter_<Func>(std::forward<Func>(f));
 		}
 
 		template<typename Func>
+		class take_while_ {
+			public:
+				take_while_(Func&& f) : f_(std::forward<Func>(f)) {}
+
+				template<typename Iterator> IF_HAS_CONCEPTS(requires LazyIterator<Iterator>)
+				auto operator()(Iterator&& it) {
+					return make_take_while_iterator(f_, std::forward<Iterator>(it));
+				}
+
+			private:
+				Func f_;
+		};
+
+		template<typename Func>
 		auto take_while(Func f) {
-			return [f](auto base_iterator) {
-				return make_take_while_iterator(f, base_iterator);
-			};
+			return take_while_<Func>(std::forward<Func>(f));
 		}
 
+		class take_ {
+			public:
+				take_(size_t num_elems) : num_elems_(num_elems) {}
+				template<typename Iterator> IF_HAS_CONCEPTS(requires LazyIterator<Iterator>)
+				auto operator()(Iterator&& it) {
+					return make_take_iterator(num_elems_, std::forward<Iterator>(it));
+				}
+
+			private:
+				size_t num_elems_;
+		};
+
 		auto take(size_t num_elems) {
-			return [num_elems](auto base_iterator) {
-				return make_take_iterator(num_elems, base_iterator);
-			};
+			return take_(num_elems);
 		}
 	}
 
