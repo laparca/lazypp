@@ -54,8 +54,8 @@ namespace lazypp {
 			 */
             template<typename FuncApply, typename Iterator>
             concept bool LazyAplication = requires() {
-				requires LazyIterator<std::result_of_t<FuncApply(Iterator)>>;
                 requires LazyIterator<Iterator>;
+				requires LazyIterator<std::result_of_t<FuncApply(Iterator)>>;
 			};
         //)
 
@@ -116,7 +116,7 @@ namespace lazypp {
 
         template<typename BaseIterator, typename FilterFunc> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
 			filter_iterator<BaseIterator, FilterFunc> make_filter_iterator(FilterFunc&& f, BaseIterator&& base) {
-				return filter_iterator<BaseIterator, FilterFunc>(std::forward<FilterFunc>(f), std::forward<BaseIterator>&& base);
+				return filter_iterator<BaseIterator, FilterFunc>(std::forward<FilterFunc>(f), std::forward<BaseIterator>(base));
 			}
 
         template<typename BaseIterator> IF_HAS_CONCEPTS(requires LazyIterator<BaseIterator>)
@@ -290,28 +290,9 @@ namespace lazypp {
 					 * @return New wrapper arround a new lazy iterator.
 					 */
 					template<typename Func> IF_HAS_CONCEPTS(requires LazyAplication<Func, Iterator>)
-						wrapper<std::result_of_t<Func(Iterator)>> operator>>(Func&& f) {
+						auto operator>>(Func&& f) {
 							return wrap(f(iterator_));
 						}
-
-                    template<typename Func>
-                        wrapper<map_iterator<Iterator, Func>> map(Func f) {
-                            return wrap(map_iterator<Iterator, Func>(f, iterator_));
-                        }
-
-                    template<typename Func>
-                        wrapper<filter_iterator<Iterator, Func>> filter(Func f) {
-                            return wrap(filter_iterator<Iterator, Func>(f, iterator_));
-                        }
-
-                    wrapper<take_iterator<Iterator>> take(size_t num_elems) {
-                        return wrap(take_iterator<Iterator>(num_elems, iterator_));
-                    }
-
-                    template<typename Func>
-                        wrapper<take_while_iterator<Iterator, Func>> take_while(Func f) {
-                            return wrap(take_while_iterator<Iterator, Func>(f, iterator_));
-                        }
 
                     template<typename Func>
                         void each(Func f) {
@@ -379,7 +360,7 @@ namespace lazypp {
 		};
 
 		template<typename Func>
-		auto filter(Func f) {
+		auto filter(Func&& f) {
 			return filter_<Func>(std::forward<Func>(f));
 		}
 
