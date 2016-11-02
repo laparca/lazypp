@@ -1,6 +1,8 @@
 #include <lazypp.hpp>
 #include <vector>
 #include <iostream>
+#define BOOST_TEST_MODULE lazypp
+#include <boost/test/included/unit_test.hpp>
 
 struct infinite { 
 	size_t v_;
@@ -24,13 +26,39 @@ _less_than<T> less_than(T&& v) {
 	return _less_than<T>(std::forward<T>(v));
 }
 
+auto square = [](auto&& v) { return v * v; };
+auto even = [](auto&& v) { return v % 2 == 0; };
+
+using namespace lazypp::applications;
+
+BOOST_AUTO_TEST_CASE(Checking_generator_and_take_10_elements)
+{
+    int count = 0;
+    (lazypp::from::generator(infinite()) >> take(10)).each([&count](auto&& v) {
+            static int v1 = 0;
+            BOOST_TEST( v1++ == v );
+            count ++;
+        });
+    BOOST_TEST( count == 10 );
+}
+
+BOOST_AUTO_TEST_CASE(Checking_filtering)
+{
+    int count = 0;
+    (lazypp::from::generator(infinite()) >> filter(even) >> take(10)).each([&count](auto&& v) {
+            static int v1 = 0;
+            BOOST_TEST( v1 == v );
+            v1 += 2;
+            count ++;
+        });
+    BOOST_TEST( count == 10 );
+}
+
+#if 0
 int main() {
 	auto show = [](auto&& v) { std::cout << v << std::endl; };
-	auto square = [](auto&& v) { return v * v; };
-	auto even = [](auto&& v) { return v % 2 == 0; };
 	std::vector<int> values {1, 2, 3, 4, 5, 6, 7, 8};
 
-	using namespace lazypp::applications;
 
 	std::cout << "Testing from generator" << std::endl;
     (lazypp::from::generator(infinite()) >>
@@ -70,3 +98,4 @@ int main() {
 
 	return 0;
 }
+#endif

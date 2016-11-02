@@ -9,4 +9,4 @@ ADD_EXECUTABLE(lazypptests tests.cpp)
 ADD_TEST(NAME lazytests COMMAND lazypptests)
 
 target_compile_options(lazypptests PRIVATE ${lazypp_COMPILE_OPTIONS})
-target_link_libraries(lazypptests ${Boost_LIBRARIES})
+#target_link_libraries(lazypptests ${Boost_LIBRARIES})
