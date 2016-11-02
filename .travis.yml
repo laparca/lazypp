@@ -1,0 +1,13 @@
+language: cpp
+compiler:
+    - gcc
+before_script:
+    - sudo apt-get update -qq
+    - sudo apt-get install libboost-test-dev cmake
+script: cmake . && make && tests/lazytests
+notifications:
+    email:
+        recipients:
+            - laparca@laparca.es
+        on_success: change
+        on_failure: allways
