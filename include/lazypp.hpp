@@ -40,7 +40,7 @@ namespace lazypp {
 		template<typename T>
 		using value_type_t = typename remove_reference_t<T>::value_type;
 
-        //IF_HAS_CONCEPTS(
+#ifdef BOOST_HAS_CONCEPTS
             template<typename T>
             concept bool LazyIterator = requires(T a) {
                 typename value_type_t<T>;
@@ -57,7 +57,7 @@ namespace lazypp {
                 requires LazyIterator<Iterator>;
 				requires LazyIterator<std::result_of_t<FuncApply(Iterator)>>;
 			};
-        //)
+#endif
 
         /**
          * each iterator should define:
