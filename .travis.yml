@@ -1,3 +1,4 @@
+dist: travis
 language: cpp
 compiler:
     - gcc
