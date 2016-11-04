@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 project (lazypp CXX)
 
+include(GetCompilerVersion.cmake)
+
 message("Compiler is GNUCXX? ${CMAKE_COMPILER_IS_GNUCXX}")
 message("CXX version: ${CMAKE_CXX_COMPILER_VERSION}")
 if(CMAKE_COMPILER_IS_GNUCXX)
