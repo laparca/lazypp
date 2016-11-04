@@ -8,6 +8,6 @@ ADD_EXECUTABLE(lazypptests tests.cpp)
 
 ADD_TEST(NAME lazytests COMMAND lazypptests)
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${lazypp_COMPILE_OPTIONS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${lazypp_COMPILE_OPTIONS}")
 # target_compile_options doesn't work in travis-ci
-target_compile_options(lazypptests PRIVATE ${lazypp_COMPILE_OPTIONS})
+#target_compile_options(lazypptests PRIVATE ${lazypp_COMPILE_OPTIONS})
