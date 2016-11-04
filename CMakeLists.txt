@@ -1,10 +1,17 @@
 cmake_minimum_required(VERSION 2.8)
 project (lazypp CXX)
 
+message("Compiler is GNUCXX? ${CMAKE_COMPILER_IS_GNUCXX}")
+message("CXX version: ${CMAKE_CXX_COMPILER_VERSION}")
 if(CMAKE_COMPILER_IS_GNUCXX)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 6.2 OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.2)
+		message("Compiler supports concepts")
         set(lazypp_COMPILE_OPTIONS -fconcepts)
+	else()
+		message("Compiler doesn't supports concepts")
     endif()
+else()
+	message("Compiler doesn't supports concepts")
 endif()
 
 ADD_SUBDIRECTORY(tests)
