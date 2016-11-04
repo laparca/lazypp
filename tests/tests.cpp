@@ -36,10 +36,10 @@ BOOST_AUTO_TEST_CASE(Checking_generator_and_take_10_elements)
     int count = 0;
     (lazypp::from::generator(infinite()) >> take(10)).each([&count](auto&& v) {
             static int v1 = 0;
-            BOOST_TEST( v1++ == v );
+            BOOST_CHECK_EQUAL( v1++, v );
             count ++;
         });
-    BOOST_TEST( count == 10 );
+    BOOST_CHECK_EQUAL( count, 10 );
 }
 
 BOOST_AUTO_TEST_CASE(Checking_filtering)
@@ -47,11 +47,11 @@ BOOST_AUTO_TEST_CASE(Checking_filtering)
     int count = 0;
     (lazypp::from::generator(infinite()) >> filter(even) >> take(10)).each([&count](auto&& v) {
             static int v1 = 0;
-            BOOST_TEST( v1 == v );
+            BOOST_CHECK_EQUAL( v1, v );
             v1 += 2;
             count ++;
         });
-    BOOST_TEST( count == 10 );
+    BOOST_CHECK_EQUAL( count, 10 );
 }
 
 #if 0
