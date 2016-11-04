@@ -5,7 +5,10 @@ include(GetCompilerVersion.cmake)
 
 message("Compiler is GNUCXX? ${CMAKE_COMPILER_IS_GNUCXX}")
 message("CXX version: ${CMAKE_CXX_COMPILER_VERSION}")
-if(CMAKE_COMPILER_IS_GNUCXX)
+
+OPTION(DIABLE_CONCEPTS "Disables the use of concepts")
+
+if(CMAKE_COMPILER_IS_GNUCXX AND NOT DISABLE_CONCEPTS)
     if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 6.2 OR CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.2)
 		message("Compiler supports concepts")
         set(lazypp_COMPILE_OPTIONS -fconcepts)
@@ -14,6 +17,10 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     endif()
 else()
 	message("Compiler doesn't supports concepts")
+endif()
+
+if(DISABLE_CONCEPTS)
+    set(lazypp_COMPILE_OPTIONS "${lazypp_COMPILE_OPTIONS} -DDISABLE_CONCEPTS")
 endif()
 
 ADD_SUBDIRECTORY(tests)

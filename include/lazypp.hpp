@@ -23,10 +23,9 @@ namespace std {
         using optional = std::experimental::optional<T>;
 }
 
-#define BOOST_HAS_CONCEPTS
-
-#ifdef BOOST_HAS_CONCEPTS
+#if !(defined DISABLE_CONCEPTS) && (defined BOOST_HAS_CONCEPTS)
 #define IF_HAS_CONCEPTS(...) __VA_ARGS__
+#define HAS_CONCEPTS
 #else
 #define IF_HAS_CONCEPTS(...)
 #endif
@@ -40,7 +39,7 @@ namespace lazypp {
 		template<typename T>
 		using value_type_t = typename remove_reference_t<T>::value_type;
 
-#ifdef BOOST_HAS_CONCEPTS
+#ifdef HAS_CONCEPTS
             template<typename T>
             concept bool LazyIterator = requires(T a) {
                 typename value_type_t<T>;
