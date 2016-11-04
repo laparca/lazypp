@@ -8,10 +8,11 @@ addons:
     apt:
         packages:
             - g++-6
-            - libboost-test-dev
+            - libboost-test1.55-dev
             - cmake
         sources: &sources
             - ubuntu-toolchain-r-test
+            - boost-latest
 
 #before_script:
 #    - sudo apt-get update -qq
