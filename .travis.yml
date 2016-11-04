@@ -18,7 +18,7 @@ install:
 script:
     - cmake -DDISABLE_CONCEPTS=ON .
     - make VERBOSE=S
-    - tests/lazytests
+    - tests/lazypptests
 
 notifications:
     email:
