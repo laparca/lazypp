@@ -13,11 +13,11 @@ addons:
         sources: &sources
             - ubuntu-toolchain-r-test
 
-before_script:
-    - sudo apt-get update -qq
-    - sudo apt-get install g++-6 libboost-test-dev cmake
+#before_script:
+#    - sudo apt-get update -qq
+#    - sudo apt-get install g++-6 libboost-test-dev cmake
 
-script: cmake . && make && tests/lazytests
+script: cmake . && make VERBOSE=S && tests/lazytests
 
 notifications:
     email:
