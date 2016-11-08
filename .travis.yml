@@ -12,6 +12,9 @@ addons:
             - ubuntu-toolchain-r-test
             - boost-latest
 
+branches:
+    - master
+
 install:
     - if [ "$CXX" = "g++" ]; then export CXX=g++-6; fi
 
