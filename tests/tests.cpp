@@ -38,6 +38,9 @@ std::string demangle(const char* name) {
 	free(ptr_name);
 	return std::move(demangled_name);
 }
+
+#define describe(T) std::cerr << "typeid(" << #T << ") = " << demangle(typeid(T).name()) << std::endl
+
 struct infinite { 
     size_t v_;
     infinite(size_t v = 0) : v_(v) {}
@@ -91,25 +94,41 @@ BOOST_AUTO_TEST_CASE(Checking_filtering)
 namespace lazypp {
 	namespace iterators {
 		template<typename BaseIterator>
-		class join_iterator {
-		public:
-			typedef value_type_t<BaseIterator> base_type;
-			typedef value_type_t<base_type> value_type;
+        class join_iterator {
+        public:
+            typedef value_type_t<BaseIterator> base_type;
+            typedef value_type_t<base_type> value_type;
 
-			join_iterator() = delete;
-			join_iterator(BaseIterator& base) : iterator_(base) {}
-			join_iterator(BaseIterator&& base) : iterator_(std::move(base)) {}
-			join_iterator(const join_iterator<BaseIterator>& it) : iterator_(it.iterator_) {}
+            join_iterator() = delete;
+            join_iterator(BaseIterator base) : iterator_(base), ended_(false) {
+                auto v = iterator_.next();
+                if (v)
+                    actual_ = *v;
+                else
+                    ended_ = true;
+            }
+            join_iterator(const join_iterator<BaseIterator>& it) : iterator_(it.iterator_), actual_(it.actual_) {}
 
-			std::optional<value_type> next() {
-				return std::optional<value_type>();
-			}
+            std::optional<value_type> next() {
+                while(!ended_) {
+                    auto v = actual_.next();
+                    if (v) return v;
 
-		private:
-			BaseIterator iterator_;
-//			std::optional<value_type> 
+                    auto it = iterator_.next();
+                    if (!it)
+                        ended_ = true;
+                    else
+                        actual_ = *it;
+                }
 
-		};
+                return std::optional<value_type>();
+            }
+
+        private:
+            BaseIterator iterator_;
+            base_type actual_;
+            bool ended_;
+        };
 
 		template<typename BaseIterator>
 		join_iterator<BaseIterator> make_join_iterator(BaseIterator&& it) {
@@ -136,7 +155,7 @@ namespace lazypp {
 
 BOOST_AUTO_TEST_CASE(Checking_lazy_algorithm) {
 	auto iter = lazypp::from::generator(infinite(1)) >> map([](size_t z) {
-		return lazypp::from::range(1u, z) >> map([z](size_t x) {
+		return lazypp::from::range((size_t)1, z) >> map([z](size_t x) {
 			return lazypp::from::range(x, z) >> filter([x, z](size_t y) {
 				return x*x + y*y == z*z;
 			}) >> map([x, z](size_t y) {
@@ -145,10 +164,10 @@ BOOST_AUTO_TEST_CASE(Checking_lazy_algorithm) {
 		}) >> join();
 	}) >> join();
 
-	std::cerr << demangle(typeid(iter).name()) << std::endl;
+    describe(iter);
 
-	iter.each([](auto&& v) {
-		std::cerr << demangle(typeid(v).name()) << std::endl;
+	(iter >> take(3)).each([](auto&& v) {
+	    describe(v);
 	});
 }
 #if 0
