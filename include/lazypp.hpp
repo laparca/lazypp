@@ -274,6 +274,8 @@ namespace lazypp {
         template<typename Iterator> IF_HAS_CONCEPTS(requires LazyIterator<Iterator>)
         class wrapper {
         public:
+			typedef value_type_t<Iterator> value_type;
+
             wrapper() = delete;
             wrapper(const wrapper<Iterator>& iterator) : iterator_(iterator.iterator_) {}
             wrapper(wrapper<Iterator>&& iterator) : iterator_(std::move(iterator.iterator_)) {}
@@ -293,10 +295,19 @@ namespace lazypp {
 
             template<typename Func>
             void each(Func f) {
-                decltype(iterator_.next()) v;
-                while((v = iterator_.next()))
-                    f(*v);
+//                decltype(iterator_.next()) v;
+  //              while((v = iterator_.next()))
+    //                f(*v);
+				while(1) {
+					auto&& v = iterator_.next();
+					if (v) f(*v);
+					else break;
+				}
             }
+
+			std::optional<value_type> next() {
+				return iterator_.next();
+			}
 
             template<typename To>
             std::remove_reference_t<To> to() {
@@ -314,6 +325,10 @@ namespace lazypp {
                     });
                 return acum;
             }
+
+			Iterator& unwrap() {
+				return iterator_;
+			}
 
         private:
             Iterator iterator_;

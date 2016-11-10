@@ -3,7 +3,41 @@
 #include <iostream>
 #define BOOST_TEST_MODULE lazypp
 #include <boost/test/included/unit_test.hpp>
+#include <typeinfo>
+#include <cxxabi.h>
 
+std::string demangle(const char* name) {
+	if (!name) return std::string(name);
+
+	int st;
+	char *ptr_name = abi::__cxa_demangle(name, 0, 0, &st);
+
+	if (!ptr_name) {
+		std::cerr << "name cannot be demangled" << std::endl;
+		return std::string(name);
+	}
+
+	std::cerr << "Demangled status: ";
+	switch(st) {
+		case 0:
+			std::cerr << "OK";
+			break;
+		case -1:
+			std::cerr << "Memory allocation error";
+			break;
+		case -2:
+			std::cerr << "Name is not valid name under C++ ABI namgling rules";
+			break;
+		case -3:
+			std::cerr << "One of the arguments is invalid";
+			break;
+	}
+	std::cerr << std::endl;
+
+	std::string demangled_name(ptr_name);
+	free(ptr_name);
+	return std::move(demangled_name);
+}
 struct infinite { 
     size_t v_;
     infinite(size_t v = 0) : v_(v) {}
@@ -54,6 +88,69 @@ BOOST_AUTO_TEST_CASE(Checking_filtering)
     BOOST_CHECK_EQUAL( count, 10 );
 }
 
+namespace lazypp {
+	namespace iterators {
+		template<typename BaseIterator>
+		class join_iterator {
+		public:
+			typedef value_type_t<BaseIterator> base_type;
+			typedef value_type_t<base_type> value_type;
+
+			join_iterator() = delete;
+			join_iterator(BaseIterator& base) : iterator_(base) {}
+			join_iterator(BaseIterator&& base) : iterator_(std::move(base)) {}
+			join_iterator(const join_iterator<BaseIterator>& it) : iterator_(it.iterator_) {}
+
+			std::optional<value_type> next() {
+				return std::optional<value_type>();
+			}
+
+		private:
+			BaseIterator iterator_;
+//			std::optional<value_type> 
+
+		};
+
+		template<typename BaseIterator>
+		join_iterator<BaseIterator> make_join_iterator(BaseIterator&& it) {
+			return join_iterator<BaseIterator>(std::forward<BaseIterator>(it));
+		}
+	}
+
+	namespace applications {
+		using namespace lazypp::iterators;
+
+		class join_ {
+			public:
+				template<typename Iterator>
+				auto operator()(Iterator&& it) {
+					return make_join_iterator(it);
+				}
+		};
+
+		auto join() {
+			return join_();
+		}
+	}
+}
+
+BOOST_AUTO_TEST_CASE(Checking_lazy_algorithm) {
+	auto iter = lazypp::from::generator(infinite(1)) >> map([](size_t z) {
+		return lazypp::from::range(1u, z) >> map([z](size_t x) {
+			return lazypp::from::range(x, z) >> filter([x, z](size_t y) {
+				return x*x + y*y == z*z;
+			}) >> map([x, z](size_t y) {
+				return std::tuple<size_t, size_t, size_t>(x, y, z);
+			});
+		}) >> join();
+	}) >> join();
+
+	std::cerr << demangle(typeid(iter).name()) << std::endl;
+
+	iter.each([](auto&& v) {
+		std::cerr << demangle(typeid(v).name()) << std::endl;
+	});
+}
 #if 0
 int main() {
     auto show = [](auto&& v) { std::cout << v << std::endl; };
