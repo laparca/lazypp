@@ -259,65 +259,41 @@ namespace lazypp {
 
         template<typename T>
         using stl_iterator_t = stl_iterator<std::remove_reference_t<T>>;
+        
+        template< typename C, typename = void >
+        struct has_next : std::false_type {};
 
-        template<typename Iterator> IF_HAS_CONCEPTS(requires LazyIterator<Iterator>)
-            class wrapper;
+        template<typename C>
+        struct has_next<C, typename std::enable_if<
+            std::is_same<
+                decltype(std::declval<C>().next()),
+                std::optional<typename C::value_type>
+            >::value
+        >::type> : std::true_type {};
 
         template<typename T>
-        using wrapper_t = wrapper<std::remove_reference_t<T>>;
+        struct has_value_type {
+            typedef char                      yes;
+            typedef struct { char array[2]; } no;
 
-        template<typename T> IF_HAS_CONCEPTS(requires LazyIterator<T>)
-        constexpr wrapper<T> wrap(T&& t) {
-            return wrapper<T>(std::forward<T>(t));
-        }
+            template<typename C> static yes test(typename C::value_type*);
+            template<typename C> static no  test(...);
 
-        template<typename Iterator> IF_HAS_CONCEPTS(requires LazyIterator<Iterator>)
-        class wrapper {
         public:
-            wrapper() = delete;
-            wrapper(const wrapper<Iterator>& iterator) : iterator_(iterator.iterator_) {}
-            wrapper(wrapper<Iterator>&& iterator) : iterator_(std::move(iterator.iterator_)) {}
-            wrapper(Iterator&& iterator) : iterator_(std::forward<Iterator>(iterator)) {}
-
-            /**
-             * Grant the hability of use stream sintax for concatenate
-             * lazyness operations.
-             * @param f function that acepts a lazy interator and
-             *          generates a new lazy iterator arround it.
-             * @return New wrapper arround a new lazy iterator.
-             */
-            template<typename Func> IF_HAS_CONCEPTS(requires LazyAplication<Func, Iterator>)
-            auto operator>>(Func&& f) {
-                return wrap(f(iterator_));
-            }
-
-            template<typename Func>
-            void each(Func f) {
-                decltype(iterator_.next()) v;
-                while((v = iterator_.next()))
-                    f(*v);
-            }
-
-            template<typename To>
-            std::remove_reference_t<To> to() {
-                std::remove_reference_t<To> new_container;
-                each([&new_container](auto v) {
-                        new_container.push_back(v);
-                    });
-                return To(std::move(new_container));
-            }
-
-            template<typename To, typename Func>
-            To fold(To acum, Func f) {
-                each([&](auto v) {
-                        acum = f(acum, v);
-                    });
-                return acum;
-            }
-
-        private:
-            Iterator iterator_;
+            static const bool value = sizeof(test<T>(0)) == sizeof(yes);
+            typedef T type;
         };
+
+        template<typename T, typename = void>
+        struct is_lazyiterator : public std::false_type {};
+
+        template<typename T>
+        struct is_lazyiterator<T, std::enable_if_t<has_value_type<T>::value && has_next<T>::value>> : public std::true_type {};
+
+        template<typename BaseIter, typename App> IF_HAS_CONCEPTS(requires LazyIterator<BaseIter>)
+        auto operator>>(std::enable_if_t<is_lazyiterator<BaseIter>, BaseIter>&& base, App&& app) {
+            return app(std::forward<BaseIter>(base));
+        }
     }
 
     namespace applications {
